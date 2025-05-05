@@ -32,7 +32,7 @@ app.post('/send-email', async (req, res) => {
     const downloadId = uuidv4();
     pdfStorage.set(downloadId, pdf_base64);
 
-    const downloadLink = `https://server-xyz.onrender.com/download/${downloadId}`;
+    const downloadLink = `https://server-3e7c.onrender.com/${downloadId}`;
 
     const params = {
         to_email,
