@@ -3,36 +3,41 @@ const emailjs = require('@emailjs/nodejs');
 const { v4: uuidv4 } = require('uuid');
 const cors = require('cors');
 const app = express();
-app.use(express.json());
 
-// Configure CORS pour autoriser uniquement ton front-end
-const allowedOrigins = ['https://ecobank-virement.onrender.com'];
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type']
-}));
+app.use(express.json());
+app.use(cors()); // Autorise les requêtes cross-origin
 
 const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Vérifie que ta clé privée est correcte
+    privateKey: process.env.EMAILJS_PRIVATE_KEY // Clé privée dans variable d'environnement
 });
+
+// Fonction pour obtenir l'URL de base du serveur
+const getBaseUrl = () => {
+    const port = process.env.PORT || 3000;
+    return process.env.NODE_ENV === 'production'
+        ? `https://${require('os').hostname()}.onrender.com`
+        : `http://localhost:${port}`;
+};
 
 app.post('/send-email', async (req, res) => {
     const { to_email, amount, frais, beneficiary, reason, date, account_num, pdf_base64 } = req.body;
 
+    if (!to_email || !pdf_base64) {
+        console.error('Données manquantes:', { to_email, pdf_base64 });
+        return res.status(400).json({ error: 'Données manquantes: to_email ou pdf_base64 requis' });
+    }
+
     const downloadId = uuidv4();
     pdfStorage.set(downloadId, pdf_base64);
 
-    const downloadLink = `https://server-3e7c.onrender.com/${downloadId}`;
+    // Supprimer le PDF après 10 minutes pour éviter l'accumulation en mémoire
+    setTimeout(() => pdfStorage.delete(downloadId), 10 * 60 * 1000);
+
+    const baseUrl = getBaseUrl();
+    const downloadLink = `${baseUrl}/download/${downloadId}`;
 
     const params = {
         to_email,
@@ -50,12 +55,15 @@ app.post('/send-email', async (req, res) => {
         }
     };
 
+    console.log('Envoi EmailJS avec params:', params);
+
     try {
-        await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
+        const response = await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
+        console.log('Réponse EmailJS:', response);
         res.status(200).json({ message: 'E-mail envoyé avec succès' });
     } catch (error) {
-        console.error('Erreur EmailJS:', error);
-        res.status(500).json({ error: 'Erreur lors de l’envoi de l’e-mail' });
+        console.error('Erreur EmailJS:', error.message, error.stack);
+        res.status(500).json({ error: `Erreur lors de l’envoi de l’e-mail: ${error.message}` });
     }
 });
 
