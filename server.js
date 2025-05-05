@@ -5,7 +5,7 @@ const cors = require('cors');
 const app = express();
 
 app.use(express.json());
-app.use(cors()); // Autorise les requêtes cross-origin
+app.use(cors());
 
 const pdfStorage = new Map();
 
@@ -17,9 +17,16 @@ emailjs.init({
 app.post('/send-email', async (req, res) => {
     const { to_email, amount, frais, beneficiary, reason, date, account_num, pdf_base64 } = req.body;
 
-    if (!to_email || !pdf_base64) {
-        console.error('Données manquantes:', { to_email, pdf_base64 });
-        return res.status(400).json({ error: 'Données manquantes: to_email ou pdf_base64 requis' });
+    if (!to_email || !pdf_base64 || !account_num || !beneficiary || !amount || !frais || !reason || !date) {
+        console.error('Données manquantes:', req.body);
+        return res.status(400).json({ error: 'Données manquantes: tous les champs sont requis' });
+    }
+
+    // Validation basique de l'e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to_email)) {
+        console.error('Adresse e-mail invalide:', to_email);
+        return res.status(400).json({ error: 'Adresse e-mail invalide' });
     }
 
     const downloadId = uuidv4();
@@ -46,7 +53,7 @@ app.post('/send-email', async (req, res) => {
         }
     };
 
-    console.log('Envoi EmailJS avec params:', params);
+    console.log('Envoi EmailJS avec params:', JSON.stringify(params, null, 2));
 
     try {
         const response = await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
@@ -54,7 +61,7 @@ app.post('/send-email', async (req, res) => {
         res.status(200).json({ message: 'E-mail envoyé avec succès' });
     } catch (error) {
         console.error('Erreur EmailJS:', error.message, error.stack);
-        res.status(500).json({ error: `Erreur lors de l’envoi de l’e-mail: ${error.message}` });
+        res.status(500).json({ error: `Erreur EmailJS: ${error.message}` });
     }
 });
 
@@ -62,11 +69,16 @@ app.get('/download/:id', (req, res) => {
     const { id } = req.params;
     const pdfBase64 = pdfStorage.get(id);
     if (pdfBase64) {
-        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=bordereau.pdf`);
-        res.send(pdfBuffer);
-        pdfStorage.delete(id);
+        try {
+            const pdfBuffer = Buffer.from(pdf_base64, 'base64');
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=bordereau.pdf`);
+            res.send(pdfBuffer);
+            pdfStorage.delete(id);
+        } catch (error) {
+            console.error('Erreur lors du téléchargement du PDF:', error.message);
+            res.status(500).json({ error: 'Erreur lors du téléchargement du PDF' });
+        }
     } else {
         res.status(404).send('Bordereau non trouvé');
     }
