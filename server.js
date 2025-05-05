@@ -1,14 +1,17 @@
 const express = require('express');
 const emailjs = require('@emailjs/nodejs');
 const { v4: uuidv4 } = require('uuid');
+const cors = require('cors');
 const app = express();
+
 app.use(express.json());
+app.use(cors()); // Autorise les requêtes cross-origin
 
 const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Clé privée codée en dur
+    privateKey: 'ioQpE6T1POreOlcIt0l-D'
 });
 
 app.post('/send-email', async (req, res) => {
