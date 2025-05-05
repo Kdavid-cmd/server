@@ -1,15 +1,26 @@
 const express = require('express');
 const emailjs = require('@emailjs/nodejs');
 const { v4: uuidv4 } = require('uuid');
+const cors = require('cors'); // Ajout de cors
 const app = express();
+
 app.use(express.json());
+app.use(cors()); // Autorise les requêtes cross-origin
 
 const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Remplace par ta clé privée
+    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Vérifie que cette clé est correcte
 });
+
+// Fonction pour obtenir l'URL de base du serveur
+const getBaseUrl = () => {
+    const port = process.env.PORT || 3000;
+    return process.env.NODE_ENV === 'production'
+        ? `https://${require('os').hostname()}.onrender.com` // URL Render en production
+        : `http://localhost:${port}`; // URL locale en développement
+};
 
 app.post('/send-email', async (req, res) => {
     const { to_email, amount, frais, beneficiary, reason, date, account_num, pdf_base64 } = req.body;
@@ -17,7 +28,8 @@ app.post('/send-email', async (req, res) => {
     const downloadId = uuidv4();
     pdfStorage.set(downloadId, pdf_base64);
 
-    const downloadLink = `https://ton-backend.onrender.com/download/${downloadId}`;
+    const baseUrl = getBaseUrl();
+    const downloadLink = `${baseUrl}/download/${downloadId}`;
 
     const params = {
         to_email,
