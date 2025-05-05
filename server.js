@@ -23,16 +23,39 @@ const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: 'TA_CLÉ_PRIVÉE' // Vérifie que ta clé privée est correcte
+    privateKey: 'ioQpE6T1POreOlcIt0l-D'
 });
 
 app.post('/send-email', async (req, res) => {
     const { to_email, amount, frais, beneficiary, reason, date, account_num, pdf_base64 } = req.body;
 
+    if (!to_email || !pdf_base64 || !account_num || !beneficiary || !amount || !frais || !reason || !date) {
+        console.error('Données manquantes:', req.body);
+        return res.status(400).json({ error: 'Données manquantes: tous les champs sont requis' });
+    }
+
+    // Validation de l'e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to_email)) {
+        console.error('Adresse e-mail invalide:', to_email);
+        return res.status(400).json({ error: 'Adresse e-mail invalide' });
+    }
+
+    // Validation du Base64
+    try {
+        Buffer.from(pdf_base64, 'base64');
+    } catch (error) {
+        console.error('Base64 invalide:', error.message);
+        return res.status(400).json({ error: 'Données PDF Base64 invalides' });
+    }
+
     const downloadId = uuidv4();
     pdfStorage.set(downloadId, pdf_base64);
 
-    const downloadLink = `https://server-xyz.onrender.com/download/${downloadId}`;
+    // Supprimer le PDF après 10 minutes
+    setTimeout(() => pdfStorage.delete(downloadId), 10 * 60 * 1000);
+
+    const downloadLink = `https://server-3e7c.onrender.com/download/${downloadId}`;
 
     const params = {
         to_email,
@@ -42,20 +65,26 @@ app.post('/send-email', async (req, res) => {
         reason,
         date,
         account_num,
-        download_link: downloadLink,
-        attachment: {
-            name: `bordereau_${date}.pdf`,
-            data: pdf_base64,
-            contentType: 'application/pdf'
-        }
+        download_link: downloadLink
+        // Temporairement commenter la pièce jointe pour tester
+        // attachment: {
+        //     name: `bordereau_${date}.pdf`,
+        //     data: pdf_base64,
+        //     contentType: 'application/pdf'
+        // }
     };
 
+    console.log('Envoi EmailJS avec params:', JSON.stringify(params, null, 2));
+
     try {
-        await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
+        const response = await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
+        console.log('Réponse EmailJS:', JSON.stringify(response, null, 2));
         res.status(200).json({ message: 'E-mail envoyé avec succès' });
     } catch (error) {
-        console.error('Erreur EmailJS:', error);
-        res.status(500).json({ error: 'Erreur lors de l’envoi de l’e-mail' });
+        console.error('Erreur EmailJS complète:', error);
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ error: `Erreur EmailJS: ${error.message || 'Erreur inconnue'}` });
     }
 });
 
@@ -63,11 +92,16 @@ app.get('/download/:id', (req, res) => {
     const { id } = req.params;
     const pdfBase64 = pdfStorage.get(id);
     if (pdfBase64) {
-        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=bordereau.pdf`);
-        res.send(pdfBuffer);
-        pdfStorage.delete(id);
+        try {
+            const pdfBuffer = Buffer.from(pdf_base64, 'base64');
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=bordereau.pdf`);
+            res.send(pdfBuffer);
+            pdfStorage.delete(id);
+        } catch (error) {
+            console.error('Erreur lors du téléchargement du PDF:', error.message);
+            res.status(500).json({ error: 'Erreur lors du téléchargement du PDF' });
+        }
     } else {
         res.status(404).send('Bordereau non trouvé');
     }
