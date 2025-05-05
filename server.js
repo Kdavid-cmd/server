@@ -22,11 +22,19 @@ app.post('/send-email', async (req, res) => {
         return res.status(400).json({ error: 'Données manquantes: tous les champs sont requis' });
     }
 
-    // Validation basique de l'e-mail
+    // Validation de l'e-mail
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(to_email)) {
         console.error('Adresse e-mail invalide:', to_email);
         return res.status(400).json({ error: 'Adresse e-mail invalide' });
+    }
+
+    // Validation du Base64
+    try {
+        Buffer.from(pdf_base64, 'base64');
+    } catch (error) {
+        console.error('Base64 invalide:', error.message);
+        return res.status(400).json({ error: 'Données PDF Base64 invalides' });
     }
 
     const downloadId = uuidv4();
@@ -46,22 +54,25 @@ app.post('/send-email', async (req, res) => {
         date,
         account_num,
         download_link: downloadLink,
-        attachment: {
-            name: `bordereau_${date}.pdf`,
-            data: pdf_base64,
-            contentType: 'application/pdf'
-        }
+        // Temporairement commenter la pièce jointe pour tester
+        // attachment: {
+        //     name: `bordereau_${date}.pdf`,
+        //     data: pdf_base64,
+        //     contentType: 'application/pdf'
+        // }
     };
 
     console.log('Envoi EmailJS avec params:', JSON.stringify(params, null, 2));
 
     try {
         const response = await emailjs.send('service_p2stdvp', 'template_boyklk8', params);
-        console.log('Réponse EmailJS:', response);
+        console.log('Réponse EmailJS:', JSON.stringify(response, null, 2));
         res.status(200).json({ message: 'E-mail envoyé avec succès' });
     } catch (error) {
-        console.error('Erreur EmailJS:', error.message, error.stack);
-        res.status(500).json({ error: `Erreur EmailJS: ${error.message}` });
+        console.error('Erreur EmailJS complète:', error);
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ error: `Erreur EmailJS: ${error.message || 'Erreur inconnue'}` });
     }
 });
 
