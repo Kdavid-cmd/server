@@ -23,7 +23,7 @@ const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: 'TA_CLÉ_PRIVÉE' // Vérifie que ta clé privée est correcte
+    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Vérifie que ta clé privée est correcte
 });
 
 app.post('/send-email', async (req, res) => {
