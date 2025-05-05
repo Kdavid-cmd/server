@@ -1,26 +1,15 @@
 const express = require('express');
 const emailjs = require('@emailjs/nodejs');
 const { v4: uuidv4 } = require('uuid');
-const cors = require('cors');
 const app = express();
-
 app.use(express.json());
-app.use(cors()); // Autorise les requêtes cross-origin
 
 const pdfStorage = new Map();
 
 emailjs.init({
     publicKey: '7X5RVEsOkGdM2ChRh',
-    privateKey: process.env.EMAILJS_PRIVATE_KEY // Clé privée dans variable d'environnement
+    privateKey: 'ioQpE6T1POreOlcIt0l-D' // Clé privée codée en dur
 });
-
-// Fonction pour obtenir l'URL de base du serveur
-const getBaseUrl = () => {
-    const port = process.env.PORT || 3000;
-    return process.env.NODE_ENV === 'production'
-        ? `https://${require('os').hostname()}.onrender.com`
-        : `http://localhost:${port}`;
-};
 
 app.post('/send-email', async (req, res) => {
     const { to_email, amount, frais, beneficiary, reason, date, account_num, pdf_base64 } = req.body;
@@ -33,11 +22,10 @@ app.post('/send-email', async (req, res) => {
     const downloadId = uuidv4();
     pdfStorage.set(downloadId, pdf_base64);
 
-    // Supprimer le PDF après 10 minutes pour éviter l'accumulation en mémoire
+    // Supprimer le PDF après 10 minutes
     setTimeout(() => pdfStorage.delete(downloadId), 10 * 60 * 1000);
 
-    const baseUrl = getBaseUrl();
-    const downloadLink = `${baseUrl}/download/${downloadId}`;
+    const downloadLink = `https://server-3e7c.onrender.com/download/${downloadId}`;
 
     const params = {
         to_email,
